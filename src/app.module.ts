@@ -1,30 +1,63 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from './users/users.module';
-import { PostsModule } from './posts/posts.module';
+import { ConfigModule } from '@nestjs/config';
+import { 
+  User, 
+  Product, 
+  Category, 
+  ProductImage, 
+  Quotation, 
+  QuotationItem, 
+  Service, 
+  ServiceImage, 
+  AuditLog 
+} from './entities';
+
+// Importar módulos
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { ProductsModule } from './modules/products/products.module';
+import { QuotationsModule } from './modules/quotations/quotations.module';
+import { ServicesModule } from './modules/services/services.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true, // disponible en todo el proyecto
+      isGlobal: true,
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: config.get<number>('DB_PORT'),
-        username: config.get<string>('DB_USERNAME'),
-        password: config.get<string>('DB_PASSWORD'),
-        database: config.get<string>('DB_NAME'),
-        autoLoadEntities: true,
-        synchronize: true, // ⚠️ solo en desarrollo
-      }),
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5433'),
+      username: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'password',
+      database: process.env.DB_NAME || 'business_app',
+      entities: [
+        User,
+        Product,
+        Category,
+        ProductImage,
+        Quotation,
+        QuotationItem,
+        Service,
+        ServiceImage,
+        AuditLog
+      ],
+      synchronize: process.env.NODE_ENV === 'development',
+      logging: process.env.NODE_ENV === 'development',
     }),
+    // Módulos de funcionalidades
+    AuthModule,
     UsersModule,
-    PostsModule,
+    ProductsModule,
+    QuotationsModule,
+    ServicesModule,
+    ReportsModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
