@@ -7,6 +7,8 @@ export enum QuotationStatus {
   SENT = 'sent',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
   EXPIRED = 'expired'
 }
 
@@ -20,6 +22,15 @@ export class Quotation {
 
   @Column({ type: 'text', nullable: true })
   notes?: string;
+
+  @Column({ length: 255, nullable: true })
+  location?: string;
+
+  @Column({ type: 'date', nullable: true })
+  requiredDate?: Date;
+
+  @Column({ type: 'simple-array', nullable: true })
+  photos?: string[];
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   subtotal: number;

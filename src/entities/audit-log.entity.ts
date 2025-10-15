@@ -8,7 +8,8 @@ export enum AuditAction {
   LOGIN = 'login',
   LOGOUT = 'logout',
   GENERATE_REPORT = 'generate_report',
-  SEND_QUOTATION = 'send_quotation'
+  SEND_QUOTATION = 'send_quotation',
+  UPDATE_QUOTATION_STATUS = 'update_quotation_status'
 }
 
 @Entity('audit_logs')

@@ -1,4 +1,12 @@
-import { IsNotEmpty, IsString, IsOptional, IsUUID, IsEnum, IsNumber, IsDateString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsEnum,
+  IsNumber,
+  IsDateString,
+} from 'class-validator';
 import { ServiceStatus, ServicePriority } from '../../entities';
 
 export class CreateServiceDto {
@@ -13,6 +21,10 @@ export class CreateServiceDto {
   @IsNotEmpty()
   @IsString()
   description: string;
+
+  @IsOptional()
+  @IsEnum(ServiceStatus)
+  status?: ServiceStatus; // ✅ <-- agregado
 
   @IsOptional()
   @IsEnum(ServicePriority)

@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Quotation, QuotationItem, Product, User, UserRole } from '../../entities';
+import { Quotation, User, Service, QuotationStatus, QuotationItem } from '../../entities';
 import { CreateQuotationDto, UpdateQuotationDto } from '../../common/dto/quotation.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditAction } from '../../entities/audit-log.entity';
 
 @Injectable()
 export class QuotationsService {
@@ -11,89 +13,41 @@ export class QuotationsService {
     private quotationsRepository: Repository<Quotation>,
     @InjectRepository(QuotationItem)
     private quotationItemsRepository: Repository<QuotationItem>,
-    @InjectRepository(Product)
-    private productsRepository: Repository<Product>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private auditLogsService: AuditLogsService,
   ) {}
 
   async create(createQuotationDto: CreateQuotationDto, userId: string): Promise<Quotation> {
-    // Verificar que el cliente existe
-    const customer = await this.usersRepository.findOne({
-      where: { id: createQuotationDto.customerId, role: UserRole.CUSTOMER }
-    });
+    const { serviceId, description, location, requiredDate, photos } = createQuotationDto;
 
+    const customer = await this.usersRepository.findOneBy({ id: userId });
     if (!customer) {
-      throw new NotFoundException('Cliente no encontrado');
+      throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Verificar que todos los productos existen y calcular totales
-    let subtotal = 0;
-    const itemsData: any[] = [];
-
-    for (const item of createQuotationDto.items) {
-      const product = await this.productsRepository.findOne({
-        where: { id: item.productId }
-      });
-
-      if (!product) {
-        throw new NotFoundException(`Producto ${item.productId} no encontrado`);
-      }
-
-      const itemSubtotal = item.quantity * item.unitPrice;
-      subtotal += itemSubtotal;
-
-      itemsData.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        notes: item.notes,
-        subtotal: itemSubtotal,
-      });
-    }
-
-    // Calcular impuestos (ejemplo: 16% IVA)
-    const tax = subtotal * 0.16;
-    const total = subtotal + tax;
-
-    // Generar número de cotización
     const quotationNumber = await this.generateQuotationNumber();
 
-    // Crear la cotización
-    const quotation = this.quotationsRepository.create({
+    const newQuotation = this.quotationsRepository.create({
       quotationNumber,
-      customerId: createQuotationDto.customerId,
+      customerId: userId,
       createdById: userId,
-      notes: createQuotationDto.notes,
-      terms: createQuotationDto.terms,
-      validUntil: createQuotationDto.validUntil ? new Date(createQuotationDto.validUntil) : undefined,
-      subtotal,
-      tax,
-      total,
+      notes: `Solicitud de cotización para el servicio ID: ${serviceId}.\n\nDescripción del cliente:\n${description}`,
+      location,
+      requiredDate: new Date(requiredDate),
+      photos,
+      status: QuotationStatus.SENT,
+      subtotal: 0,
+      tax: 0,
+      total: 0,
     });
 
-    const savedQuotation = await this.quotationsRepository.save(quotation);
-
-    // Crear los items de la cotización
-    const quotationItems = itemsData.map(item => 
-      this.quotationItemsRepository.create({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        notes: item.notes,
-        subtotal: item.subtotal,
-        quotationId: savedQuotation.id,
-      })
-    );
-
-    await this.quotationItemsRepository.save(quotationItems);
-
-    return this.findOne(savedQuotation.id);
+    return this.quotationsRepository.save(newQuotation);
   }
 
   async findAll(): Promise<Quotation[]> {
     return this.quotationsRepository.find({
-      relations: ['customer', 'createdBy', 'items', 'items.product'],
+      relations: ['customer', 'createdBy', 'items'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -101,7 +55,7 @@ export class QuotationsService {
   async findByCustomer(customerId: string): Promise<Quotation[]> {
     return this.quotationsRepository.find({
       where: { customerId },
-      relations: ['customer', 'createdBy', 'items', 'items.product'],
+      relations: ['customer', 'createdBy', 'items'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -109,7 +63,7 @@ export class QuotationsService {
   async findOne(id: string): Promise<Quotation> {
     const quotation = await this.quotationsRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdBy', 'items', 'items.product', 'items.product.category'],
+      relations: ['customer', 'createdBy', 'items'],
     });
 
     if (!quotation) {
@@ -120,75 +74,55 @@ export class QuotationsService {
   }
 
   async update(id: string, updateQuotationDto: UpdateQuotationDto): Promise<Quotation> {
-    const quotation = await this.findOne(id);
+    const existingQuotation = await this.findOne(id);
 
-    if (updateQuotationDto.customerId) {
-      const customer = await this.usersRepository.findOne({
-        where: { id: updateQuotationDto.customerId, role: UserRole.CUSTOMER }
-      });
-
-      if (!customer) {
-        throw new NotFoundException('Cliente no encontrado');
+    if (updateQuotationDto.status && updateQuotationDto.status !== existingQuotation.status) {
+      const isValidTransition = this.validateStatusTransition(
+        existingQuotation.status,
+        updateQuotationDto.status,
+      );
+      if (!isValidTransition) {
+        throw new BadRequestException(
+          `Transición de estado inválida de ${existingQuotation.status} a ${updateQuotationDto.status}`,
+        );
       }
+
+      // Log the status change
+      await this.auditLogsService.createLog(
+        AuditAction.UPDATE_QUOTATION_STATUS,
+        'Quotation',
+        id,
+        existingQuotation.createdBy.id, // Assuming the user performing the action is the creator for now
+        { status: existingQuotation.status },
+        { status: updateQuotationDto.status },
+      );
     }
 
-    // Si se actualizan los items, recalcular totales
-    if (updateQuotationDto.items) {
-      // Eliminar items existentes
+    const { items, ...quotationData } = updateQuotationDto;
+
+    await this.quotationsRepository.update(id, quotationData);
+
+    if (items) {
       await this.quotationItemsRepository.delete({ quotationId: id });
 
-      let subtotal = 0;
-      const itemsData: any[] = [];
-
-      for (const item of updateQuotationDto.items) {
-        const product = await this.productsRepository.findOne({
-          where: { id: item.productId }
-        });
-
-        if (!product) {
-          throw new NotFoundException(`Producto ${item.productId} no encontrado`);
-        }
-
-        const itemSubtotal = item.quantity * item.unitPrice;
-        subtotal += itemSubtotal;
-
-        itemsData.push({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          notes: item.notes,
+      let calculatedSubtotal = 0;
+      const newItems = items.map(itemDto => {
+        const itemSubtotal = itemDto.quantity * itemDto.unitPrice;
+        calculatedSubtotal += itemSubtotal;
+        return this.quotationItemsRepository.create({
+          ...itemDto,
           subtotal: itemSubtotal,
+          quotationId: id,
         });
-      }
-
-      const tax = subtotal * 0.16;
-      const total = subtotal + tax;
-
-      // Actualizar totales en la cotización
-      const { items, ...updateData } = updateQuotationDto;
-      await this.quotationsRepository.update(id, {
-        ...updateData,
-        subtotal,
-        tax,
-        total,
       });
 
-      // Crear los nuevos items
-      const quotationItems = itemsData.map(item => 
-        this.quotationItemsRepository.create({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          notes: item.notes,
-          subtotal: item.subtotal,
-          quotationId: id,
-        })
-      );
+      await this.quotationItemsRepository.save(newItems);
 
-      await this.quotationItemsRepository.save(quotationItems);
-    } else {
-      // Solo actualizar los campos básicos
-      await this.quotationsRepository.update(id, updateQuotationDto);
+      // Update subtotal and total in quotationData
+      quotationData.subtotal = calculatedSubtotal;
+      // Assuming tax is 0 for now, or apply a default tax rate if available
+      quotationData.tax = quotationData.tax ?? 0; // Keep existing tax if not provided, otherwise default to 0
+      quotationData.total = calculatedSubtotal + quotationData.tax;
     }
 
     return this.findOne(id);
@@ -197,6 +131,25 @@ export class QuotationsService {
   async remove(id: string): Promise<void> {
     const quotation = await this.findOne(id);
     await this.quotationsRepository.remove(quotation);
+  }
+
+  private validateStatusTransition(currentStatus: QuotationStatus, newStatus: QuotationStatus): boolean {
+    switch (currentStatus) {
+      case QuotationStatus.DRAFT:
+        return newStatus === QuotationStatus.SENT || newStatus === QuotationStatus.REJECTED;
+      case QuotationStatus.SENT:
+        return newStatus === QuotationStatus.APPROVED || newStatus === QuotationStatus.REJECTED;
+      case QuotationStatus.APPROVED:
+        return newStatus === QuotationStatus.IN_PROGRESS || newStatus === QuotationStatus.REJECTED;
+      case QuotationStatus.IN_PROGRESS:
+        return newStatus === QuotationStatus.COMPLETED || newStatus === QuotationStatus.REJECTED;
+      case QuotationStatus.COMPLETED:
+      case QuotationStatus.REJECTED:
+      case QuotationStatus.EXPIRED:
+        return false; // No further transitions from these final states
+      default:
+        return false;
+    }
   }
 
   private async generateQuotationNumber(): Promise<string> {
