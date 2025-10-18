@@ -19,7 +19,6 @@ export class ServicesController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EMPLOYEE)
   findAll(@Query('customerId') customerId?: string, @Query('assignedToId') assignedToId?: string) {
     if (customerId) {
       return this.servicesService.findByCustomer(customerId);
@@ -43,12 +42,7 @@ export class ServicesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @GetUser() user: User) {
-    // Los clientes solo pueden ver sus propios servicios
-    if (user.role === UserRole.CUSTOMER) {
-      // Aquí deberías verificar que el servicio pertenece al usuario
-      // Por simplicidad, asumimos que el servicio ya maneja esto
-    }
+  findOne(@Param('id') id: string) {
     return this.servicesService.findOne(id);
   }
 

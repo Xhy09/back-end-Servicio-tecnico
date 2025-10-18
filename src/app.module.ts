@@ -22,6 +22,7 @@ import { ProductsModule } from './modules/products/products.module';
 import { QuotationsModule } from './modules/quotations/quotations.module';
 import { ServicesModule } from './modules/services/services.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -46,7 +47,7 @@ import { ReportsModule } from './modules/reports/reports.module';
         ServiceImage,
         AuditLog
       ],
-      synchronize: process.env.NODE_ENV === 'development',
+      synchronize: process.env.NODE_ENV !== 'production',
       logging: process.env.NODE_ENV === 'development',
     }),
     // Módulos de funcionalidades
@@ -56,6 +57,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     QuotationsModule,
     ServicesModule,
     ReportsModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

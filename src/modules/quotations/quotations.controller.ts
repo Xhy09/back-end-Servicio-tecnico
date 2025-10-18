@@ -13,7 +13,7 @@ export class QuotationsController {
   constructor(private readonly quotationsService: QuotationsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.EMPLOYEE)
+  @Roles(UserRole.ADMIN, UserRole.EMPLOYEE, UserRole.CUSTOMER)
   create(@Body() createQuotationDto: CreateQuotationDto, @GetUser() user: User) {
     return this.quotationsService.create(createQuotationDto, user.id);
   }
