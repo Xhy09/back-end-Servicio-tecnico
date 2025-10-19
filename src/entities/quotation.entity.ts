@@ -1,16 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
 import { QuotationItem } from './quotation-item.entity';
-
-export enum QuotationStatus {
-  DRAFT = 'draft',
-  SENT = 'sent',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  EXPIRED = 'expired'
-}
+import { Status } from './status.entity';
 
 @Entity('quotations')
 export class Quotation {
@@ -41,8 +32,11 @@ export class Quotation {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   total: number;
 
-  @Column({ type: 'enum', enum: QuotationStatus, default: QuotationStatus.DRAFT })
-  status: QuotationStatus;
+  @ManyToOne(() => Status, status => status.quotations)
+  status: Status;
+
+  @Column({ name: 'statusId' })
+  statusId: string;
 
   @Column({ type: 'date', nullable: true })
   validUntil?: Date;

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
-import { Quotation, Service, User, QuotationStatus, ServiceStatus, UserRole } from '../../entities';
+import { Quotation, Service, User, ServiceStatus, UserRole } from '../../entities';
 
 export interface MonthlyReport {
   period: string;
@@ -9,7 +9,7 @@ export interface MonthlyReport {
     total: number;
     approved: number;
     pending: number;
-    rejected: number;
+    // rejected: number; // Removed as per new status definitions
     totalAmount: number;
   };
   services: {
@@ -49,11 +49,11 @@ export class ReportsService {
 
     const quotationStats = {
       total: quotations.length,
-      approved: quotations.filter(q => q.status === QuotationStatus.APPROVED).length,
-      pending: quotations.filter(q => q.status === QuotationStatus.SENT).length,
-      rejected: quotations.filter(q => q.status === QuotationStatus.REJECTED).length,
+      approved: quotations.filter(q => q.status.name === 'Finalizado').length,
+      pending: quotations.filter(q => q.status.name === 'Iniciado').length,
+      // rejected: quotations.filter(q => q.status.name === 'Rechazado').length, // Removed as per new status definitions
       totalAmount: quotations
-        .filter(q => q.status === QuotationStatus.APPROVED)
+        .filter(q => q.status.name === 'Finalizado')
         .reduce((sum, q) => sum + Number(q.total), 0)
     };
 
@@ -122,7 +122,7 @@ export class ReportsService {
 
     // Cotizaciones pendientes
     const pendingQuotations = await this.quotationsRepository.count({
-      where: { status: QuotationStatus.SENT }
+      where: { status: { name: 'Iniciado' } }
     });
 
     // Servicios activos

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Quotation, User, Service, QuotationStatus, QuotationItem } from '../../entities';
+import { Quotation, User, Service, QuotationItem, Status } from '../../entities';
 import { CreateQuotationDto, UpdateQuotationDto } from '../../common/dto/quotation.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditAction } from '../../entities/audit-log.entity';
@@ -15,6 +15,8 @@ export class QuotationsService {
     private quotationItemsRepository: Repository<QuotationItem>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(Status)
+    private statusRepository: Repository<Status>,
     private auditLogsService: AuditLogsService,
   ) {}
 
@@ -27,6 +29,10 @@ export class QuotationsService {
     }
 
     const quotationNumber = await this.generateQuotationNumber();
+    const pendingStatus = await this.statusRepository.findOneBy({ name: 'Pendiente' });
+    if (!pendingStatus) {
+      throw new NotFoundException('Estado "Pendiente" no encontrado. Asegúrese de que los estados iniciales estén configurados.');
+    }
 
     const newQuotation = this.quotationsRepository.create({
       quotationNumber,
@@ -36,7 +42,8 @@ export class QuotationsService {
       location,
       requiredDate: new Date(requiredDate),
       photos,
-      status: QuotationStatus.SENT,
+      status: pendingStatus,
+      statusId: pendingStatus.id,
       subtotal: 0,
       tax: 0,
       total: 0,
@@ -74,16 +81,28 @@ export class QuotationsService {
   }
 
   async update(id: string, updateQuotationDto: UpdateQuotationDto): Promise<Quotation> {
-    const existingQuotation = await this.findOne(id);
+    const existingQuotation = await this.quotationsRepository.findOne({
+      where: { id },
+      relations: ['status', 'createdBy'], // Ensure status and createdBy are loaded
+    });
 
-    if (updateQuotationDto.status && updateQuotationDto.status !== existingQuotation.status) {
+    if (!existingQuotation) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+
+    if (updateQuotationDto.statusId && updateQuotationDto.statusId !== existingQuotation.status.id) {
+      const newStatus = await this.statusRepository.findOneBy({ id: updateQuotationDto.statusId });
+      if (!newStatus) {
+        throw new NotFoundException('Nuevo estado no encontrado.');
+      }
+
       const isValidTransition = this.validateStatusTransition(
-        existingQuotation.status,
-        updateQuotationDto.status,
+        existingQuotation.status.name, // Pass the name of the current status
+        newStatus.name, // Pass the name of the new status
       );
       if (!isValidTransition) {
         throw new BadRequestException(
-          `Transición de estado inválida de ${existingQuotation.status} a ${updateQuotationDto.status}`,
+          `Transición de estado inválida de ${existingQuotation.status.name} a ${newStatus.name}`,
         );
       }
 
@@ -92,15 +111,22 @@ export class QuotationsService {
         AuditAction.UPDATE_QUOTATION_STATUS,
         'Quotation',
         id,
-        existingQuotation.createdBy.id, // Assuming the user performing the action is the creator for now
-        { status: existingQuotation.status },
-        { status: updateQuotationDto.status },
+        existingQuotation.createdBy.id,
+        { status: existingQuotation.status.name },
+        { status: newStatus.name },
       );
+      // Update the status relation and ID
+      existingQuotation.status = newStatus;
+      existingQuotation.statusId = newStatus.id;
     }
 
-    const { items, ...quotationData } = updateQuotationDto;
+    const { items, statusId, ...quotationData } = updateQuotationDto; // Exclude statusId from direct update
 
-    await this.quotationsRepository.update(id, quotationData);
+    // Apply other updates from quotationData to existingQuotation
+    Object.assign(existingQuotation, quotationData);
+
+    // Save the updated quotation
+    await this.quotationsRepository.save(existingQuotation);
 
     if (items) {
       await this.quotationItemsRepository.delete({ quotationId: id });
@@ -133,24 +159,24 @@ export class QuotationsService {
     await this.quotationsRepository.remove(quotation);
   }
 
-  private validateStatusTransition(currentStatus: QuotationStatus, newStatus: QuotationStatus): boolean {
-    switch (currentStatus) {
-      case QuotationStatus.DRAFT:
-        return newStatus === QuotationStatus.SENT || newStatus === QuotationStatus.REJECTED;
-      case QuotationStatus.SENT:
-        return newStatus === QuotationStatus.APPROVED || newStatus === QuotationStatus.REJECTED;
-      case QuotationStatus.APPROVED:
-        return newStatus === QuotationStatus.IN_PROGRESS || newStatus === QuotationStatus.REJECTED;
-      case QuotationStatus.IN_PROGRESS:
-        return newStatus === QuotationStatus.COMPLETED || newStatus === QuotationStatus.REJECTED;
-      case QuotationStatus.COMPLETED:
-      case QuotationStatus.REJECTED:
-      case QuotationStatus.EXPIRED:
-        return false; // No further transitions from these final states
-      default:
-        return false;
+  private validateStatusTransition(currentStatusName: string, newStatusName: string): boolean {
+    // Allow any status to transition to 'Finalizado'
+    if (newStatusName === 'Finalizado') {
+      return true;
     }
-  }
+
+    switch (currentStatusName) {
+      case 'Pendiente':
+        return newStatusName === 'Iniciado';
+      case 'Iniciado':
+        return newStatusName === 'En Proceso';
+      case 'En Proceso':
+        return newStatusName === 'Finalizado'; // This case is already covered by the first if, but kept for clarity
+          case 'Finalizado':
+              return newStatusName === 'Iniciado'; // Allow reopening a finalized quotation
+          default:
+              return false;
+          }  }
 
   private async generateQuotationNumber(): Promise<string> {
     const year = new Date().getFullYear();
