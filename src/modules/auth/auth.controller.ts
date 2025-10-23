@@ -1,8 +1,10 @@
 // src/modules/auth/auth.controller.ts
-import { Body, Controller, Get, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
-import type { Response, Request } from 'express'; // 👈 IMPORT TYPE
+import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { CreateUserDto, LoginDto } from '../../common/dto/user.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { GetUser } from '../../common/decorators/get-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -51,15 +53,9 @@ export class AuthController {
   }
 
   @Get('me')
-  async me(@Req() req: Request, @Res() res: Response) {
-    const token = req.cookies?.token;
-    if (!token) throw new UnauthorizedException('No autenticado');
-
-    const payload = this.authService.verifyToken(token);
-    const user = await this.authService.validateUser(payload.sub);
-    if (!user) throw new UnauthorizedException('No autenticado');
-
-    const { password, ...userWithoutPassword } = user as any;
-    return res.send({ user: userWithoutPassword });
+  @UseGuards(JwtAuthGuard)
+  async me(@GetUser() user: any) {
+    const { password, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword };
   }
 }

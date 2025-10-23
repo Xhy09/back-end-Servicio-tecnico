@@ -1,7 +1,7 @@
 # compiled output
 /dist
-/node_modules
 /build
+/node_modules
 
 # Logs
 logs
@@ -14,6 +14,8 @@ lerna-debug.log*
 
 # Environment variables
 .env
+.env.*
+!.env.example
 
 # OS
 .DS_Store
@@ -38,12 +40,22 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+/coverage
+/.nyc_output
+junit.xml
 
 # temp directory
 .temp
@@ -57,3 +69,37 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Production files
+/uploads
+/public/uploads
+/storage
+
+# Cache directories
+.eslintcache
+.parcel-cache
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
