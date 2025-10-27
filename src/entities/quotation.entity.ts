@@ -11,6 +11,12 @@ export class Quotation {
   @Column({ unique: true, length: 20 })
   quotationNumber: string; // COT-2024-001
 
+  @Column({ length: 100 })
+  tipo_servicio: string; // Tipo de servicio solicitado
+
+  @Column({ length: 20, nullable: true })
+  telefono_empresa?: string; // Teléfono de empresa (opcional)
+
   @Column({ type: 'text', nullable: true })
   notes?: string;
 

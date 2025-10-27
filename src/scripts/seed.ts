@@ -3,6 +3,7 @@ import { AppModule } from '../app.module';
 import { UsersService } from '../modules/users/users.service';
 import { ProductsService } from '../modules/products/products.service';
 import { ServicesService } from '../modules/services/services.service';
+import { StatusesService } from '../modules/statuses/statuses.service';
 import { UserRole, ServiceStatus, ServicePriority } from '../entities';
 // import * as bcrypt from 'bcrypt'; // No se usa, lo removí
 
@@ -11,54 +12,99 @@ async function bootstrap() {
   const usersService = app.get(UsersService);
   const productsService = app.get(ProductsService);
   const servicesService = app.get(ServicesService);
+  const statusesService = app.get(StatusesService);
 
   try {
     console.log('🚀 Iniciando seed de la base de datos...');
 
+    // Crear estados para cotizaciones y servicios
+    try {
+      const statuses = [
+        { name: 'Pendiente', color: '#FFA500', description: 'Cotización o servicio pendiente de revisión' },
+        { name: 'Aprobada', color: '#28A745', description: 'Cotización aprobada por el cliente' },
+        { name: 'Rechazada', color: '#DC3545', description: 'Cotización rechazada' },
+        { name: 'En Proceso', color: '#007BFF', description: 'Servicio en proceso de ejecución' },
+        { name: 'Completada', color: '#28A745', description: 'Servicio completado exitosamente' },
+        { name: 'Cancelada', color: '#6C757D', description: 'Cotización o servicio cancelado' },
+      ];
+
+      for (const status of statuses) {
+        try {
+          await statusesService.create(status);
+        } catch (error) {
+          // Si el estado ya existe, continuar
+        }
+      }
+      console.log('✅ Estados creados: Pendiente, Aprobada, Rechazada, En Proceso, Completada, Cancelada');
+    } catch (error) {
+      console.log('⚠️  Error al crear estados:', error.message);
+    }
+
     // Crear usuario administrador
     try {
+      // Intentar eliminar el usuario admin si existe
+      const existingAdmin = await usersService.findByEmail('admin@tedics.com');
+      if (existingAdmin) {
+        await usersService.remove(existingAdmin.id);
+        console.log('🔄 Usuario administrador anterior eliminado');
+      }
+      
       await usersService.create({
         firstName: 'Admin',
         lastName: 'Sistema',
         email: 'admin@tedics.com',
-        password: 'tedics123',
+        password: '123456',
         role: UserRole.ADMIN,
       });
-      console.log('✅ Usuario administrador creado: admin@tedics.com / tedics123');
+      console.log('✅ Usuario administrador creado: admin@tedics.com / 123456');
     } catch (error) {
-      console.log('⚠️  Usuario administrador ya existe');
+      console.log('⚠️  Error al crear usuario administrador:', error.message);
     }
 
     // Crear usuario empleado
     try {
+      // Intentar eliminar el usuario empleado si existe
+      const existingEmployee = await usersService.findByEmail('empleado@tedics.com');
+      if (existingEmployee) {
+        await usersService.remove(existingEmployee.id);
+        console.log('🔄 Usuario empleado anterior eliminado');
+      }
+      
       await usersService.create({
         firstName: 'Juan',
         lastName: 'Empleado',
         email: 'empleado@tedics.com',
-        password: 'empleado123',
+        password: '123456',
         role: UserRole.EMPLOYEE,
         phone: '+34612345678',
       });
-      console.log('✅ Usuario empleado creado: empleado@tedics.com / empleado123');
+      console.log('✅ Usuario empleado creado: empleado@tedics.com / 123456');
     } catch (error) {
-      console.log('⚠️  Usuario empleado ya existe');
+      console.log('⚠️  Error al crear usuario empleado:', error.message);
     }
 
     // Crear usuario cliente de prueba (regular user)
     try {
+      // Intentar eliminar el usuario cliente si existe
+      const existingCustomer = await usersService.findByEmail('user@tedics.com');
+      if (existingCustomer) {
+        await usersService.remove(existingCustomer.id);
+        console.log('🔄 Usuario cliente anterior eliminado');
+      }
+      
       await usersService.create({
         firstName: 'María',
         lastName: 'Cliente',
         email: 'user@tedics.com',
-        password: 'tedics123',
+        password: '123456',
         role: UserRole.CUSTOMER,
         phone: '+34687654321',
         company: 'Empresa Cliente S.L.',
         address: 'Calle Principal 123, Madrid',
       });
-      console.log('✅ Usuario cliente creado: user@tedics.com / tedics123');
+      console.log('✅ Usuario cliente creado: user@tedics.com / 123456');
     } catch (error) {
-      console.log('⚠️  Usuario cliente ya existe');
+      console.log('⚠️  Error al crear usuario cliente:', error.message);
     }
 
     // Crear categorías de ejemplo
@@ -165,9 +211,9 @@ async function bootstrap() {
     console.log('🎉 Seed completado exitosamente!');
     console.log('');
     console.log('📋 Usuarios creados:');
-    console.log('   👨‍💼 Admin: admin@tedics.com / tedics123');
-    console.log('   👷‍♂️ Empleado: empleado@tedics.com / empleado123');
-    console.log('   👤 Cliente: user@tedics.com / tedics123');
+    console.log('   👨‍💼 Admin: admin@tedics.com / 123456');
+    console.log('   👷‍♂️ Empleado: empleado@tedics.com / 123456');
+    console.log('   👤 Cliente: user@tedics.com / 123456');
     console.log('');
     console.log('🛍️  Se han creado categorías, productos y servicios de ejemplo');
   } catch (error) {

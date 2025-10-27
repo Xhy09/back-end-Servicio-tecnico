@@ -1,19 +1,16 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: mi_proyecto_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: servicio_tecnico
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: lol11990
     ports:
-      - "${DB_PORT}:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - mi_proyecto_network
 

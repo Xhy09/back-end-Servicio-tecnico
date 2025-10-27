@@ -38,6 +38,7 @@ export class QuotationsService {
       quotationNumber,
       customerId: userId,
       createdById: userId,
+      tipo_servicio: serviceId, // Tipo de servicio solicitado
       notes: `Solicitud de cotización para el servicio ID: ${serviceId}.\n\nDescripción del cliente:\n${description}`,
       location,
       requiredDate: new Date(requiredDate),

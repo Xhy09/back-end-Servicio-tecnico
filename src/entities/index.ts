@@ -4,6 +4,7 @@ export { Product, Category } from './product.entity';
 export { ProductImage } from './product-image.entity';
 export { Quotation } from './quotation.entity';
 export { QuotationItem } from './quotation-item.entity';
+export { QuotationHistory } from './quotation-history.entity';
 export { Service, ServiceStatus, ServicePriority } from './service.entity';
 export { ServiceImage } from './service-image.entity';
 export { AuditLog, AuditAction } from './audit-log.entity';
