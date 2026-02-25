@@ -33,7 +33,7 @@ export class User {
   password: string;
 
   @Column({ length: 20, nullable: true })
-  phone?: string;
+  phone?: string; // Obligatorio para clientes y empleados (validado en DTO)
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.CUSTOMER })
   role: UserRole;

@@ -14,12 +14,14 @@
     "start:prod": "node dist/main",
     "seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts",
     "db:seed": "npm run seed",
+    "fix:passwords": "ts-node -r tsconfig-paths/register src/scripts/fix-passwords.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "typeorm:run-migrations": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d ormconfig.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -52,7 +54,7 @@
     "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.0.0",
-    "@types/node": "^22.10.7",
+    "@types/node": "^22.18.12",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",

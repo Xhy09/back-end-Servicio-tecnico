@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsEnum, IsPhoneNumber } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsEnum, Matches, MaxLength } from 'class-validator';
 import { UserRole } from '../../entities';
 
 export class CreateUserDto {
@@ -18,7 +18,8 @@ export class CreateUserDto {
   password: string;
 
   @IsOptional()
-  @IsPhoneNumber('ES')
+  @IsString()
+  @Matches(/^\d{8}$/, { message: 'El teléfono debe tener exactamente 8 dígitos numéricos' })
   phone?: string;
 
   @IsOptional()
@@ -52,7 +53,8 @@ export class UpdateUserDto {
   lastName?: string;
 
   @IsOptional()
-  @IsPhoneNumber('ES')
+  @IsString()
+  @Matches(/^\d{8}$/, { message: 'El teléfono debe tener exactamente 8 dígitos numéricos' })
   phone?: string;
 
   @IsOptional()

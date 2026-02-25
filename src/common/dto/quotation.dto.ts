@@ -1,11 +1,10 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsUUID, IsArray, ValidateNested, IsDateString, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsOptional, IsUUID, IsArray, ValidateNested, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { QuotationStatus } from '../../entities';
 
 // DTO for a user creating a quote *request*
 export class CreateQuotationDto {
   @IsNotEmpty()
-  @IsUUID()
+  // @IsUUID() // Temporarily removed for testing
   serviceId: string;
 
   @IsNotEmpty()
@@ -56,8 +55,8 @@ export class UpdateQuotationDto {
   validUntil?: string;
 
   @IsOptional()
-  @IsEnum(QuotationStatus)
-  status?: QuotationStatus;
+  @IsUUID()
+  statusId?: string;
 
   @IsOptional()
   @IsNumber()

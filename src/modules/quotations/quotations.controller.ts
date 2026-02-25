@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, NotFoundException } from '@nestjs/common';
 import { QuotationsService } from './quotations.service';
 import { CreateQuotationDto, UpdateQuotationDto } from '../../common/dto/quotation.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -45,8 +45,12 @@ export class QuotationsController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.EMPLOYEE)
-  update(@Param('id') id: string, @Body() updateQuotationDto: UpdateQuotationDto) {
-    return this.quotationsService.update(id, updateQuotationDto);
+  async update(@Param('id') id: string, @Body() updateQuotationDto: UpdateQuotationDto) {
+    const updatedQuotation = await this.quotationsService.update(id, updateQuotationDto);
+    if (!updatedQuotation) {
+      throw new NotFoundException('Quotation not found');
+    }
+    return updatedQuotation;
   }
 
   @Delete(':id')
